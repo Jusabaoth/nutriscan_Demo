@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>NutriScan - Payload Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2E7D32;
+            text-align: center;
+        }
+
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            border-left: 4px solid #4CAF50;
+            background: #f9fff9;
+        }
+
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow: auto;
+            font-size: 14px;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .api-key {
+            background: #fff3e0;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            word-break: break-all;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🍎 NutriScan - Payload Demo</h1>
+        <p><strong>Belajar membuat "Payload untuk curl ke AI"</strong></p>
+
+        <!-- API KEY INPUT -->
+        <div class="section" style="border-left-color: #ff9800; background: #fff3e0;">
+            <h2>🗝️ Konfigurasi API Key</h2>
+            <div class="info">
+                <p>Masukkan Gemini API Key Anda untuk mencoba fitur "Test dengan AI".</p>
+                <input type="password" id="apiKeyInput" placeholder="Paste API Key di sini"
+                    style="width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box;">
+                <button onclick="saveApiKey()" style="margin-top: 10px; background: #ff9800;">Simpan API Key</button>
+                <p id="apiKeyStatus" style="margin-top: 5px; font-size: 12px; color: #666;"></p>
+                <p><small>Belum punya? <a href="https://aistudio.google.com/app/apikey" target="_blank">Dapatkan di
+                            sini</a></small></p>
+            </div>
+        </div>
+
+        <!-- UPLOAD GAMBAR -->
+        <div class="section">
+            <h2>📸 Upload Gambar Label</h2>
+            <input type="file" id="imageInput" accept="image/*">
+            <button onclick="handleUpload()">Upload Gambar</button>
+            <div id="imageInfo" style="margin-top: 10px;"></div>
+        </div>
+
+        <!-- BUAT PAYLOAD -->
+        <div class="section">
+            <h2>📦 Buat Payload</h2>
+            <div>
+                <label>Kondisi Kesehatan:</label><br>
+                <label><input type="checkbox" id="diabetes"> Diabetes</label>
+                <label><input type="checkbox" id="hipertensi"> Hipertensi</label>
+            </div>
+            <button onclick="createPayload()">Buat Payload JSON</button>
+            <button onclick="generateCurl()">Generate CURL Command</button>
+        </div>
+
+        <!-- HASIL PAYLOAD -->
+        <div class="section">
+            <h2>🔧 Payload Hasil</h2>
+            <pre id="payloadResult">Payload akan muncul di sini...</pre>
+        </div>
+
+        <!-- CURL COMMAND -->
+        <div class="section">
+            <h2>💻 CURL Command</h2>
+            <pre id="curlResult">CURL command akan muncul di sini...</pre>
+            <p><small>Copy command ini ke terminal untuk test!</small></p>
+        </div>
+
+        <!-- TEST AI -->
+        <div class="section">
+            <h2>🤖 Test dengan AI</h2>
+            <button onclick="testWithAI()">🚀 Kirim ke AI (Real)</button>
+            <div id="aiResult" style="margin-top: 15px;"></div>
+        </div>
+
+        <!-- INFO -->
+        <div class="info">
+            <h3>🎯 Apa yang dipelajari?</h3>
+            <ol>
+                <li><strong>Payload</strong> = JSON yang dikirim ke AI</li>
+                <li><strong>CURL</strong> = Command untuk kirim payload via terminal</li>
+                <li><strong>fetch()</strong> = CURL versi JavaScript</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Load JavaScript -->
+    <script src="payload.js"></script>
+
+    <script>
+        // Global variables
+        let currentImageBase64 = "";
+        let currentPayload = null;
+
+        // Save API Key
+        function saveApiKey() {
+            const input = document.getElementById('apiKeyInput');
+            const key = input.value.trim();
+            if (key) {
+                EnvConfig.setApiKey(key);
+                document.getElementById('apiKeyStatus').textContent = '✅ API Key tersimpan di browser!';
+                input.value = ''; // Clear input for security
+            } else {
+                alert('API Key tidak boleh kosong');
+            }
+        }
+
+        // Handle image upload
+        async function handleUpload() {
+            const fileInput = document.getElementById('imageInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Pilih gambar dulu!');
+                return;
+            }
+
+            // Convert to base64
+            currentImageBase64 = await NutriScanPayload.fileToBase64(file);
+
+            // Show info
+            document.getElementById('imageInfo').innerHTML = `
+                ✅ Gambar terupload: ${file.name}<br>
+                📏 Ukuran: ${(file.size / 1024).toFixed(1)} KB
+            `;
+
+            console.log('Gambar siap:', file.name);
+        }
+
+        // Create payload
+        async function createPayload() {
+            if (!currentImageBase64) {
+                alert('Upload gambar dulu!');
+                return;
+            }
+
+            // Get conditions
+            const conditions = [];
+            if (document.getElementById('diabetes').checked) conditions.push('diabetes');
+            if (document.getElementById('hipertensi').checked) conditions.push('hipertensi');
+
+            // Create payload
+            currentPayload = NutriScanPayload.createNutritionPayload(currentImageBase64, conditions);
+
+            // Display
+            document.getElementById('payloadResult').textContent =
+                JSON.stringify(currentPayload, null, 2);
+
+            console.log('Payload dibuat:', currentPayload);
+        }
+
+        // Generate CURL command
+        function generateCurl() {
+            if (!currentPayload) {
+                alert('Buat payload dulu!');
+                return;
+            }
+
+            // Get API key
+            const apiKey = EnvConfig.getApiKey() || "YOUR_API_KEY";
+
+            // Generate CURL
+            const curlCommand = NutriScanPayload.generateCurlCommand(currentPayload, apiKey);
+
+            // Display
+            document.getElementById('curlResult').textContent = curlCommand;
+
+            console.log('CURL command generated');
+        }
+
+        // Test with real AI
+        async function testWithAI() {
+            if (!currentPayload) {
+                alert('Buat payload dulu!');
+                return;
+            }
+
+            const apiKey = EnvConfig.getApiKey();
+            if (!apiKey) {
+                alert('Masukkan API Key terlebih dahulu di bagian atas!');
+                document.getElementById('apiKeyInput').focus();
+                return;
+            }
+
+            document.getElementById('aiResult').innerHTML = '⏳ Mengirim ke AI...';
+
+            try {
+                const result = await NutriScanPayload.sendToAI(currentPayload, apiKey);
+
+                document.getElementById('aiResult').innerHTML = `
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 5px;">
+                        <h3>✅ Hasil Analisis AI</h3>
+                        <p><strong>Produk:</strong> ${result.productName}</p>
+                        <p><strong>Kalori:</strong> ${result.calories} kkal</p>
+                        <p><strong>Gula:</strong> ${result.sugar}g</p>
+                        <p><strong>Natrium:</strong> ${result.sodium}mg</p>
+                        <p><strong>Lemak:</strong> ${result.fat}g</p>
+                        <p><strong>Risiko:</strong> ${result.riskLevel}</p>
+                        <p><strong>Rekomendasi:</strong> ${result.recommendations.join(', ')}</p>
+                    </div>
+                `;
+
+                console.log('AI Response:', result);
+
+            } catch (error) {
+                document.getElementById('aiResult').innerHTML = `
+                    <div style="background: #ffebee; padding: 15px; border-radius: 5px; color: #c62828;">
+                        ❌ Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load config
+            EnvConfig.loadConfig();
+
+            // Check if key exists
+            if (EnvConfig.getApiKey()) {
+                document.getElementById('apiKeyStatus').textContent = '✅ API Key tersimpan (dari sesi sebelumnya)';
+            }
+
+            console.log('🔧 NutriScan Payload Demo siap!');
+        });
+    </script>
+</body>
+
+</html>
